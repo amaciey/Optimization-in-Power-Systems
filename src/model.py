@@ -177,6 +177,14 @@ class FlexibleConsumerModel:
             meta={"scalar_variables": scalars},
         )
 
+# Implementation of question 2
+class DisutilityConsumer(FlexibleConsumerModel):
+    pass
+
+# Implementation of question 3
+class MinimumEnergyConsumer(DisutilityConsumer):
+    pass
+
 
 _STATUS = {
     GRB.OPTIMAL: "OPTIMAL", GRB.INFEASIBLE: "INFEASIBLE", GRB.UNBOUNDED: "UNBOUNDED",
