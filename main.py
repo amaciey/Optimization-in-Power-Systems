@@ -15,11 +15,17 @@ from pathlib import Path
 import matplotlib
 
 from src.data_loader import load_question, list_questions
-from src.model import FlexibleConsumerModel, Results
+from src.model import FlexibleConsumerModel, DisutilityConsumer, MinimumEnergyConsumer, Results
 from src.plotting import plot_duals, plot_inputs, plot_scenario_comparison, plot_schedule
 from src.scenarios import scale_prices, scale_pv, set_tariffs
 
 RESULTS_DIR = Path(__file__).resolve().parent / "results"
+
+MODEL_CLASSES = {
+    "Q1_caseA": FlexibleConsumerModel,
+    "Q2_linear": DisutilityConsumer,
+    "Q3_min_energy": MinimumEnergyConsumer,
+}
 
 
 def run_base_case(question: str, out: Path, show: bool) -> Results | None:
@@ -27,7 +33,13 @@ def run_base_case(question: str, out: Path, show: bool) -> Results | None:
     print(data.summary(), "\n")
     plot_inputs(data, save_to=out / "inputs.png")
 
-    model = FlexibleConsumerModel(data).build()
+    # Chooses a different class depending on the question chosen. 
+    model_class = MODEL_CLASSES.get(question)
+    if model_class is None:
+        raise ValueError(f"No model class chosen. Choose one and re-run.")
+
+    model = model_class(data).build()
+
     try:
         results = model.solve()
     except NotImplementedError as e:
