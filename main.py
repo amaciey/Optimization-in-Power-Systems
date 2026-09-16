@@ -67,6 +67,7 @@ def run_scenarios(question: str, out: Path) -> dict[str, Results]:
     }
     runs: dict[str, Results] = {}
     for name, data in scenarios.items():
+        # TODO: Determine if this needs to change to implement classes dymamically as in run_base_case
         results = FlexibleConsumerModel(data).build().solve()
         results.save(out, tag=name)
         runs[name] = results
