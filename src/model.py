@@ -190,7 +190,84 @@ class FlexibleConsumerModel:
 
 # Implementation of question 2
 class DisutilityConsumer(FlexibleConsumerModel):
-    pass
+    """Linear disutility consumer model (Question 2.(b)).
+
+    Penalizes deviations from the hourly reference consumption target reference_load
+    using a linear cost coefficient linear_disutility.
+    """
+
+    def build(self) -> "DisutilityConsumer":
+        """Declare decision variables, objective and constraints."""
+        d, m, T = self.data, self.m, self.T
+
+        # --- Decision variables --------------------------------------------------------
+        self.var["load"] = m.addVars(T, lb=-GRB.INFINITY, vtype=GRB.CONTINUOUS, name="load")
+        self.var["pv"] = m.addVars(T, lb=-GRB.INFINITY, vtype=GRB.CONTINUOUS, name="pv")
+        self.var["import"] = m.addVars(T, lb=-GRB.INFINITY, vtype=GRB.CONTINUOUS, name="import")
+        self.var["export"] = m.addVars(T, lb=-GRB.INFINITY, vtype=GRB.CONTINUOUS, name="export")
+
+        # Auxiliary variables for linear absolute value decomposition: |L_t - ref_t| = delta_pos + delta_neg
+        self.var["delta_pos"] = m.addVars(T, lb=-GRB.INFINITY, vtype=GRB.CONTINUOUS, name="delta_pos")
+        self.var["delta_neg"] = m.addVars(T, lb=-GRB.INFINITY, vtype=GRB.CONTINUOUS, name="delta_neg")
+
+        L = self.var["load"]
+        PV = self.var["pv"]
+        P_imp = self.var["import"]
+        P_exp = self.var["export"]
+        delta_pos = self.var["delta_pos"]
+        delta_neg = self.var["delta_neg"]
+
+        # Effective import and export tariffs
+        p_imp = d.energy_price + d.import_tariff
+        p_exp = d.energy_price - d.export_tariff
+        c_pv = d.pv_marginal_cost
+        c_L = d.linear_disutility if d.linear_disutility is not None else 0.0
+        ref_load = d.reference_load if d.reference_load is not None else np.zeros(len(T))
+
+        # --- Objective ---------------------------------------------------------------
+        # Minimize total cost: procurement costs + PV costs + linear disutility penalty
+        m.setObjective(
+            gp.quicksum(p_imp[t]*P_imp[t] - p_exp[t]*P_exp[t] + c_pv*PV[t] + c_L*(delta_pos[t] + delta_neg[t]) for t in T), GRB.MINIMIZE)
+
+        # --- Constraints -------------------------------------------------------------
+        # 1. Hourly power balance: Load + Export = PV + Import
+        self.con["balance"] = m.addConstrs(
+            (L[t] + P_exp[t] - PV[t] - P_imp[t] == 0 for t in T), name="balance")
+
+        # 2. Linear deviation link: L_t - reference_load_t = delta_pos_t - delta_neg_t
+        self.con["deviation_def"] = m.addConstrs(
+            (L[t] - ref_load[t] - (delta_pos[t] - delta_neg[t]) == 0 for t in T), name="deviation_def")
+
+        # 3. Non-negativity of auxiliary deviation variables
+        self.con["delta_pos_min"] = m.addConstrs(
+            (-delta_pos[t] <= 0 for t in T), name="delta_pos_min")
+        
+        self.con["delta_neg_min"] = m.addConstrs(
+            (-delta_neg[t] <= 0 for t in T), name="delta_neg_min")
+
+        # 4. Load bounds: L_min <= L_t <= L_max
+        self.con["load_min"] = m.addConstrs(
+            (d.load_min_kWh - L[t] <= 0 for t in T), name="load_min")
+
+        self.con["load_max"] = m.addConstrs(
+            (L[t] - d.load_max_kWh <= 0 for t in T), name="load_max")
+
+        # 5. PV availability limits: 0 <= PV_t <= PV_available_t
+        self.con["pv_min"] = m.addConstrs(
+            (-PV[t] <= 0 for t in T), name="pv_min")
+        
+        self.con["pv_max"] = m.addConstrs(
+            (PV[t] - d.pv_available[t] <= 0 for t in T), name="pv_max")
+
+        # 6. Non-negativity of grid exchanges
+        self.con["import_min"] = m.addConstrs(
+            (-P_imp[t] <= 0 for t in T), name="import_min")
+        
+        self.con["export_min"] = m.addConstrs(
+            (-P_exp[t] <= 0 for t in T), name="export_min")
+
+        m.update()
+        return self
 
 # Implementation of question 3
 class MinimumEnergyConsumer(DisutilityConsumer):
