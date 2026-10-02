@@ -85,7 +85,8 @@ experiment in `main.py`.
 
 **Run everything for one case**
 ```bash
-python main.py --question Q1_caseA              # base case
+python main.py --question Q1_caseA             # base case A
+python main.py --question Q1_caseB             # base case B
 python main.py --question Q1_caseA --scenarios  # + example sensitivity scenarios
 python main.py --show                           # open the figures in a window
 ```

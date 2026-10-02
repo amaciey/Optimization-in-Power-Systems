@@ -16,13 +16,14 @@ import matplotlib
 
 from src.data_loader import load_question, list_questions
 from src.model import FlexibleConsumerModel, DisutilityConsumer, MinimumEnergyConsumer, Results
-from src.plotting import plot_duals, plot_inputs, plot_scenario_comparison, plot_schedule
+from src.plotting import plot_duals, plot_inputs, plot_scenario_comparison, plot_schedule, plot_price_ladder
 from src.scenarios import scale_prices, scale_pv, set_tariffs
 
 RESULTS_DIR = Path(__file__).resolve().parent / "results"
 
 MODEL_CLASSES = {
     "Q1_caseA": FlexibleConsumerModel,
+    "Q1_caseB": FlexibleConsumerModel,
     "Q2_linear": DisutilityConsumer,
     "Q3_min_energy": MinimumEnergyConsumer,
 }
@@ -50,6 +51,7 @@ def run_base_case(question: str, out: Path, show: bool) -> Results | None:
     results.save(out)
     plot_schedule(results, data, save_to=out / "schedule.png")
     plot_duals(results, data, save_to=out / "duals.png")
+    plot_price_ladder(results, data, save_to=out / "price_ladder.png")
     if show:
         matplotlib.pyplot.show()
     return results

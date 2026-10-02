@@ -193,10 +193,6 @@ class FlexibleConsumerModel:
             economics["utility"] = float((d.consumption_utility * hourly["load"]).sum())
             economics["net_utility"] = economics["utility"] - economics["procurement_cost"] - economics["pv_cost"]
 
-        # Dual of the power balance as a positive price
-        if "dual_balance" in hourly:
-            hourly["lambda"] = -hourly["dual_balance"]
-
         return Results(
             question=d.question,
             status=status,

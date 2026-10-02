@@ -107,3 +107,34 @@ def plot_scenario_comparison(
     ax.set(ylabel=ylabel, title=f"Scenario comparison - {metric}")
     ax.tick_params(axis="x", rotation=20)
     return _finish(fig, save_to)
+
+def plot_price_ladder(results: Results, data: InputData, save_to: Path | str | None = None) -> plt.Figure:
+    """Task 1f: Optimal schedule and price ladder. lambda_t is plotted in the KKT convention, i.e. lambda_t = -Pi of the balance constraint (DKK/kWh).
+    """
+    h = data.hours
+    r = results.hourly
+    p_imp = data.energy_price + data.import_tariff
+    p_exp = data.energy_price - data.export_tariff
+    lam = -r["dual_balance"]
+
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(9, 6), sharex=True)
+
+    ax1.fill_between(h, data.pv_available, step="mid", alpha=0.25, color="orange", label="PV available")
+    ax1.step(h, r["pv"], where="mid", color="orange", label="PV produced")
+    ax1.step(h, r["load"], where="mid", color="k", label="load")
+    ax1.bar(h, r["import"], width=0.4, color="C0", alpha=0.7, label="import")
+    ax1.bar(h, -r["export"], width=0.4, color="C2", alpha=0.7, label="export (negative)")
+    ax1.axhline(0, color="grey", lw=0.5)
+    ax1.set(ylabel="kWh/h", title=f"Optimal schedule - {data.question}")
+    ax1.legend(fontsize=8, ncol=3)
+
+    ax2.step(h, p_imp, where="mid", color="C0", ls="--", label=r"$p_t^{imp}$")
+    ax2.step(h, p_exp, where="mid", color="C2", ls="--", label=r"$p_t^{exp}$")
+    if data.consumption_utility is not None:
+        ax2.axhline(data.consumption_utility, color="k", ls=":", label=r"$u^L$")
+    ax2.axhline(data.pv_marginal_cost, color="orange", ls=":", label=r"$c^{PV}$")
+    ax2.plot(h, lam, "o", color="C3", label=r"$\lambda_t$")
+    ax2.set(xlabel="hour", ylabel="DKK/kWh", title="Price ladder and dual of the power balance")
+    ax2.set_xticks(h)
+    ax2.legend(fontsize=8, ncol=3)
+    return _finish(fig, save_to)
