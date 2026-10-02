@@ -55,6 +55,9 @@ class Results:
             for k, v in self.duals.items():
                 f.write(f"dual[{k}] : {v:.4f}\n")
 
+            for k, v in self.meta.get("economics", {}).items():
+                f.write(f"{k:<17}: {v:.4f} DKK\n")
+                
     def __str__(self) -> str:
         cols = [c for c in self.hourly.columns if not c.startswith("dual_")]
         return (
@@ -179,13 +182,28 @@ class FlexibleConsumerModel:
                 # No duals available (e.g. model with integer variables)
                 pass
 
+        # Implementation of missing parts in question 1e
+        p_imp = d.energy_price + d.import_tariff   
+        p_exp = d.energy_price - d.export_tariff          
+        economics = {
+            "procurement_cost": float((p_imp * hourly["import"] - p_exp * hourly["export"]).sum()),
+            "pv_cost": float((d.pv_marginal_cost * hourly["pv"]).sum()),
+        }
+        if d.consumption_utility is not None:
+            economics["utility"] = float((d.consumption_utility * hourly["load"]).sum())
+            economics["net_utility"] = economics["utility"] - economics["procurement_cost"] - economics["pv_cost"]
+
+        # Dual of the power balance as a positive price
+        if "dual_balance" in hourly:
+            hourly["lambda"] = -hourly["dual_balance"]
+
         return Results(
             question=d.question,
             status=status,
             objective=self.m.ObjVal,
             hourly=hourly,
             duals=duals,
-            meta={"scalar_variables": scalars},
+            meta={"scalar_variables": scalars, "economics": economics},
         )
 
 # Implementation of question 2
