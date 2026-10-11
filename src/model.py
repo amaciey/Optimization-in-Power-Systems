@@ -285,7 +285,24 @@ class DisutilityConsumer(FlexibleConsumerModel):
 
 # Implementation of question 3
 class MinimumEnergyConsumer(DisutilityConsumer):
-    pass
+    def build(self) -> "MinimumEnergyConsumer":
+        # Build the full Question 2 model first
+        super().build()
+
+        d, m, T = self.data, self.m, self.T
+        L = self.var["load"]
+
+        # Minimum total energy consumption over the day
+        # Replace this field with the actual name in your InputData class.
+        E_min = d.min_daily_energy_kWh
+
+        self.con["usage_min"] = m.addConstr(
+            gp.quicksum(L[t] for t in T) >= E_min,
+            name="usage_min"
+        )
+
+        m.update()
+        return self
 
 
 _STATUS = {
