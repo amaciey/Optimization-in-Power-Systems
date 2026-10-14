@@ -346,7 +346,7 @@ class QuadraticDisutilityConsumer(FlexibleConsumerModel):
         return self
 
 # Implementation of question 3
-class MinimumEnergyConsumer(DisutilityConsumer):
+class MinimumEnergyConsumer(QuadraticDisutilityConsumer):
     def build(self) -> "MinimumEnergyConsumer":
         # Build the full Question 2 model first
         super().build()

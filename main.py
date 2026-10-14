@@ -29,7 +29,7 @@ MODEL_CLASSES = {
     "Q1_caseB": FlexibleConsumerModel,
     "Q2_linear": DisutilityConsumer,
     "Q2_quadratic": QuadraticDisutilityConsumer,
-    "Q3_min_energy": MinimumEnergyConsumer,
+    "Q3": MinimumEnergyConsumer,
 }
 
 
