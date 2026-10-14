@@ -3,6 +3,7 @@
     python main.py                          # base case of Q1_caseA
     python main.py --question Q2_linear     # another case
     python main.py --scenarios              # also run the example sensitivity scenarios
+    python main.py --question Q2_quadratic --sweep   # also sweep c_Q (Question 2.(c).iv)
 
 Results (CSV, TXT, PNG) are written to ``results/<question>/``. Extend ``run_scenarios``
 with your own scenarios, or add a new function per question, as your analysis grows.
@@ -10,12 +11,14 @@ with your own scenarios, or add a new function per question, as your analysis gr
 from __future__ import annotations
 
 import argparse
+from dataclasses import replace
 from pathlib import Path
 
 import matplotlib
+import pandas as pd
 
 from src.data_loader import load_question, list_questions
-from src.model import FlexibleConsumerModel, DisutilityConsumer, MinimumEnergyConsumer, Results
+from src.model import FlexibleConsumerModel, DisutilityConsumer,QuadraticDisutilityConsumer, MinimumEnergyConsumer, Results
 from src.plotting import plot_duals, plot_inputs, plot_scenario_comparison, plot_schedule, plot_price_ladder
 from src.scenarios import scale_prices, scale_pv, set_tariffs
 
@@ -25,6 +28,7 @@ MODEL_CLASSES = {
     "Q1_caseA": FlexibleConsumerModel,
     "Q1_caseB": FlexibleConsumerModel,
     "Q2_linear": DisutilityConsumer,
+    "Q2_quadratic": QuadraticDisutilityConsumer,
     "Q3_min_energy": MinimumEnergyConsumer,
 }
 
@@ -79,10 +83,40 @@ def run_scenarios(question: str, out: Path) -> dict[str, Results]:
     return runs
 
 
+def run_cq_sweep(out: Path, values=(0.1, 0.2, 0.5, 1, 2, 5, 10)) -> pd.DataFrame:
+    """Question 2.(c).iv: solve Q2_quadratic for each quadratic disutility coefficient c_Q (DKK/kWh^2).
+
+    Returns one row per c_Q with the daily  cost procurementand total disutility (DKK), the daily
+    energy consumed and total absolute deviation from the reference (kWh), and the number of hours
+    in which the load sits at one of its bounds L_min or L_max. Saves the table as CSV.
+    """
+    base = load_question("Q2_quadratic")
+    rows = []
+    for c_Q in values:
+        data = replace(base, quadratic_disutility=c_Q)
+        res = QuadraticDisutilityConsumer(data).build().solve()
+        L, ref = res.hourly["load"], res.hourly["reference_load"]
+        dev = L - ref
+        at_bound = ((L - data.load_min_kWh).abs() < 1e-6) | ((L - data.load_max_kWh).abs() < 1e-6)
+        rows.append({
+            "c_Q": c_Q,
+            "procurement_cost": res.meta["economics"]["procurement_cost"],   
+            "disutility": (c_Q * dev**2).sum(),                              
+            "energy": L.sum(),                                               
+            "abs_deviation": dev.abs().sum(),                                
+            "hours_binding": int(at_bound.sum()),                            
+        })
+    table = pd.DataFrame(rows).set_index("c_Q")
+    table.to_csv(out / "sweep_cQ.csv")
+    print(table.round(3).to_string())
+    return table
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--question", default="Q1_caseA", choices=list_questions(), help="data case to use")
     parser.add_argument("--scenarios", action="store_true", help="also run the example sensitivity scenarios")
+    parser.add_argument("--sweep", action="store_true", help="also run the c_Q sweep of Question 2.(c).iv (Q2_quadratic only)")
     parser.add_argument("--show", action="store_true", help="open the figures in a window")
     args = parser.parse_args()
 
@@ -94,6 +128,8 @@ def main() -> None:
     base = run_base_case(args.question, out, args.show)
     if args.scenarios and base is not None:
         run_scenarios(args.question, out)
+    if args.sweep and args.question == "Q2_quadratic":
+        run_cq_sweep(out)
     print(f"\nOutputs written to {out}")
 
 
