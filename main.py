@@ -82,6 +82,30 @@ def run_scenarios(question: str, out: Path) -> dict[str, Results]:
     plot_scenario_comparison(runs, "objective", save_to=out / "scenarios_cost.png")
     return runs
 
+def run_cl_sweep(out: Path, values=(0.0, 0.5, 1.40, 1.41, 1.43, 2.0, 3.1)) -> pd.DataFrame:
+    """Question 2.(b).iv: solve Q2_linear for each linear disutility coefficient c_L (DKK/kWh)."""
+    base = load_question("Q2_linear")
+    rows = []
+    for c_L in values:
+        data = replace(base, linear_disutility=c_L)
+        res = DisutilityConsumer(data).build().solve()
+        L, ref = res.hourly["load"], res.hourly["reference_load"]
+        dev = L - ref
+        at_bound = ((L - data.load_min_kWh).abs() < 1e-6) | ((L - data.load_max_kWh).abs() < 1e-6)
+        rows.append({
+            "c_L": c_L,
+            "procurement_cost": res.meta["economics"]["procurement_cost"],   
+            "disutility": (c_L * dev.abs()).sum(),                              
+            "energy": L.sum(),                                               
+            "abs_deviation": dev.abs().sum(),                                
+            "hours_binding": int(at_bound.sum()),                            
+        })
+        
+    table = pd.DataFrame(rows).set_index("c_L")
+    table.to_csv(out / "sweep_cL.csv")
+    print(table.round(3).to_string())
+    return table
+
 
 def run_cq_sweep(out: Path, values=(0.1, 0.2, 0.5, 1, 2, 5, 10)) -> pd.DataFrame:
     """Question 2.(c).iv: solve Q2_quadratic for each quadratic disutility coefficient c_Q (DKK/kWh^2).
@@ -116,7 +140,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--question", default="Q1_caseA", choices=list_questions(), help="data case to use")
     parser.add_argument("--scenarios", action="store_true", help="also run the example sensitivity scenarios")
-    parser.add_argument("--sweep", action="store_true", help="also run the c_Q sweep of Question 2.(c).iv (Q2_quadratic only)")
+    parser.add_argument("--sweep", action="store_true", help="also run the c_L/c_Q sweep (Q2_linear and Q2_quadratic only)")
     parser.add_argument("--show", action="store_true", help="open the figures in a window")
     args = parser.parse_args()
 
@@ -128,8 +152,15 @@ def main() -> None:
     base = run_base_case(args.question, out, args.show)
     if args.scenarios and base is not None:
         run_scenarios(args.question, out)
-    if args.sweep and args.question == "Q2_quadratic":
-        run_cq_sweep(out)
+    
+    if args.sweep:
+        if args.question == "Q2_quadratic":
+            run_cq_sweep(out)
+        elif args.question == "Q2_linear":
+            run_cl_sweep(out)
+        else:
+            print(f"\n[info] --sweep has no effect for {args.question}.")
+            
     print(f"\nOutputs written to {out}")
 
 
