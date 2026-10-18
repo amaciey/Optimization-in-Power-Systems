@@ -211,3 +211,6 @@ your report. In practice:
 * make each experiment of the report runnable with a single command (e.g. `python main.py --question ...`
   or one notebook cell), and save its outputs under `results/`;
 * commit regularly and with meaningful messages - the git history is also a record of everyone's contribution.
+
+## 6. Our additions to the repo
+All changes to the code occurred in the `src/model.py` file. Classes there implement all required modeling functionality and inherit from one another as specified in the instructions. The classes themselves were added to a dictionary in main.py such that each question instantiates the proper class as defined in `src/models.py`.
