@@ -260,7 +260,7 @@
       "consumption_utility_DKK_per_kWh": null,
       "linear_disutility_DKK_per_kWh": null,
       "quadratic_disutility_DKK_per_kWh2": 1.0,
-      "min_total_energy_per_day_kWh": 40.0,
+      "min_total_energy_per_day_kWh": 36.0,
       "max_load_KWh_per_hour": 6.0,
       "min_load_KWh_per_hour": 0.0,
       "reference_load_capacity_factor": [
