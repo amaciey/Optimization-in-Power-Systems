@@ -366,6 +366,55 @@ class MinimumEnergyConsumer(QuadraticDisutilityConsumer):
         m.update()
         return self
 
+#Implementation of question 3(g)
+class ConsumerWithBattery(MinimumEnergyConsumer):
+    def build(self) -> "ConsumerWithBattery":
+        # Build the question 3a model.
+        super().build()
+
+        d, m, T = self.data, self.m, self.T
+        L, PV = self.var["load"], self.var["pv"]
+        P_imp, P_exp = self.var["import"], self.var["export"]
+
+        # Defining the new battery parameters
+        E_cap = d.battery_capacity_kWh
+        P_ch_max = d.battery_max_charge_kW
+        P_dis_max = d.battery_max_discharge_kW
+        eta_ch = d.battery_charging_efficiency
+        eta_dis = d.battery_discharging_efficiency
+        E_0 = d.battery_initial_soc_kWh
+
+        # Defining new variables
+        self.var["charge"] = m.addVars(T, lb=-GRB.INFINITY, vtype=GRB.CONTINUOUS, name="charge")
+        self.var["discharge"] = m.addVars(T, lb=-GRB.INFINITY, vtype=GRB.CONTINUOUS, name="discharge")
+        self.var["soc"] = m.addVars(T, lb=-GRB.INFINITY, vtype=GRB.CONTINUOUS, name="soc")
+        p_ch, p_dis, e = self.var["charge"], self.var["discharge"], self.var["soc"]
+
+        # Remove the old balance constraint and define the new one
+        m.remove(list(self.con["balance"].values()))
+        self.con["balance"] = m.addConstrs(
+            (L[t] + P_exp[t] + p_ch[t] - PV[t] - P_imp[t] - p_dis[t] == 0 for t in T), name="balance")
+
+        # Define the SoC constraint
+        self.con["soc_dynamics"] = m.addConstrs(
+            (e[t] - (E_0 if t == 0 else e[t - 1]) - eta_ch * p_ch[t] + p_dis[t] / eta_dis == 0 for t in T),
+            name="soc_dynamics")
+
+        # Chargin/Discharging power limits
+        self.con["charge_min"] = m.addConstrs((-p_ch[t] <= 0 for t in T), name="charge_min")
+        self.con["charge_max"] = m.addConstrs((p_ch[t] - P_ch_max <= 0 for t in T), name="charge_max")
+        self.con["discharge_min"] = m.addConstrs((-p_dis[t] <= 0 for t in T), name="discharge_min")
+        self.con["discharge_max"] = m.addConstrs((p_dis[t] - P_dis_max <= 0 for t in T), name="discharge_max")
+
+        # Defining 0 <= e_t <= E_cap
+        self.con["soc_min"] = m.addConstrs((-e[t] <= 0 for t in T), name="soc_min")
+        self.con["soc_max"] = m.addConstrs((e[t] - E_cap <= 0 for t in T), name="soc_max")
+
+        # SoC at the end of the day 
+        self.con["soc_end"] = m.addConstr(e[T[-1]] == E_0, name="soc_end")
+
+        m.update()
+        return self
 
 _STATUS = {
     GRB.OPTIMAL: "OPTIMAL", GRB.INFEASIBLE: "INFEASIBLE", GRB.UNBOUNDED: "UNBOUNDED",

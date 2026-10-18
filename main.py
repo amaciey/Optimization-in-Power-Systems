@@ -18,7 +18,7 @@ import matplotlib
 import pandas as pd
 
 from src.data_loader import load_question, list_questions
-from src.model import FlexibleConsumerModel, DisutilityConsumer,QuadraticDisutilityConsumer, MinimumEnergyConsumer, Results
+from src.model import FlexibleConsumerModel, DisutilityConsumer,QuadraticDisutilityConsumer, MinimumEnergyConsumer, ConsumerWithBattery, Results
 from src.plotting import plot_duals, plot_inputs, plot_scenario_comparison, plot_schedule, plot_price_ladder
 from src.scenarios import scale_prices, scale_pv, set_tariffs
 
@@ -30,6 +30,7 @@ MODEL_CLASSES = {
     "Q2_linear": DisutilityConsumer,
     "Q2_quadratic": QuadraticDisutilityConsumer,
     "Q3": MinimumEnergyConsumer,
+    "Q3_battery": ConsumerWithBattery
 }
 
 
